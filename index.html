@@ -104,6 +104,9 @@
                         <option value="Mairie">Gare de Mairie</option>
                         <option value="Hôpital">Gare de Hôpital</option>
                         <option value="Ville">Gare de Ville</option>
+                        <option value="Zoo">Gare de Zoo</option>
+                        <option value="ZC">Zone de Croisement (ZC)</option>
+                        <option value="Pavillon Noir">Gare de Pavillon Noir</option>
                     </select>
                 </div>
                 <div class="p-4 space-y-3" id="tableau-departs-tel"></div>
@@ -128,13 +131,13 @@
                             <div>
                                 <label class="block text-xs text-gray-400 mb-1">Origine</label>
                                 <select name="origine" class="w-full bg-snck-dark border border-snck-border rounded-xl px-3 py-2 text-xs text-white">
-                                    <option value="Fontaine">Fontaine</option><option value="Mairie">Mairie</option><option value="Hôpital">Hôpital</option><option value="Ville">Ville</option>
+                                    <option value="Fontaine">Fontaine</option><option value="Mairie">Mairie</option><option value="Hôpital">Hôpital</option><option value="Ville">Ville</option><option value="Zoo">Zoo</option><option value="Pavillon Noir">Pavillon Noir</option>
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-xs text-gray-400 mb-1">Terminus</label>
                                 <select name="terminus" class="w-full bg-snck-dark border border-snck-border rounded-xl px-3 py-2 text-xs text-white">
-                                    <option value="Fontaine">Fontaine</option><option value="Mairie">Mairie</option><option value="Hôpital">Hôpital</option><option value="Ville" selected>Ville</option>
+                                    <option value="Fontaine">Fontaine</option><option value="Mairie">Mairie</option><option value="Hôpital">Hôpital</option><option value="Ville" selected>Ville</option><option value="Zoo">Zoo</option><option value="Pavillon Noir">Pavillon Noir</option>
                                 </select>
                             </div>
                         </div>
@@ -212,6 +215,9 @@
                                 <option value="Mairie">Gare de Mairie</option>
                                 <option value="Hôpital">Gare de Hôpital</option>
                                 <option value="Ville">Gare de Ville</option>
+                                <option value="Zoo">Gare de Zoo</option>
+                                <option value="ZC">Zone de Croisement (ZC)</option>
+                                <option value="Pavillon Noir">Gare de Pavillon Noir</option>
                             </select>
                         </div>
                     </div>
@@ -256,13 +262,13 @@
                             <div>
                                 <label class="block text-xs font-medium text-gray-300 mb-1">Gare d'Origine</label>
                                 <select name="origine" class="w-full bg-snck-dark border border-snck-border rounded-xl px-4 py-2.5 text-sm text-white">
-                                    <option value="Fontaine">Fontaine</option><option value="Mairie">Mairie</option><option value="Hôpital">Hôpital</option><option value="Ville">Ville</option>
+                                    <option value="Fontaine">Fontaine</option><option value="Mairie">Mairie</option><option value="Hôpital">Hôpital</option><option value="Ville">Ville</option><option value="Zoo">Zoo</option><option value="Pavillon Noir">Pavillon Noir</option>
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-gray-300 mb-1">Gare de Terminus</label>
                                 <select name="terminus" class="w-full bg-snck-dark border border-snck-border rounded-xl px-4 py-2.5 text-sm text-white">
-                                    <option value="Fontaine">Fontaine</option><option value="Mairie">Mairie</option><option value="Hôpital">Hôpital</option><option value="Ville" selected>Ville</option>
+                                    <option value="Fontaine">Fontaine</option><option value="Mairie">Mairie</option><option value="Hôpital">Hôpital</option><option value="Ville" selected>Ville</option><option value="Zoo">Zoo</option><option value="Pavillon Noir">Pavillon Noir</option>
                                 </select>
                             </div>
                         </div>
@@ -388,20 +394,39 @@ function getSiriusBucketId() { return getApiEndpoint(); }
 function setSiriusBucketId(id) { setApiEndpoint(id); }
 
 /* ------------------------------------------------------------
-   2) ÉTAT GLOBAL ET CONSTANTES RÉSEAU
+   2) ÉTAT GLOBAL ET CONSTANTES RÉSEAU (identiques à SIRIUS)
    ------------------------------------------------------------ */
 let currentMode = 'pc';
 let sillonsDisponibles = [];
 
+// Ligne 1 : Fontaine - Ville
 const ligneOrdre = ['Fontaine', 'Mairie', 'Hôpital', '*Stockage', '*Dépot', 'Ville'];
 
 const tempsTrajetSecondes = {
-    'Fontaine->Mairie': 65,
-    'Mairie->Hôpital': 36,
-    'Hôpital->*Stockage': 25,
-    '*Stockage->*Dépot': 8,
-    '*Dépot->Ville': 16
+    'Fontaine->Mairie': 65, 'Mairie->Hôpital': 36, 'Hôpital->*Stockage': 25, '*Stockage->*Dépot': 8, '*Dépot->Ville': 16,
+    'Ville->*Dépot': 16, '*Dépot->*Stockage': 8, '*Stockage->Hôpital': 25, 'Hôpital->Mairie': 36, 'Mairie->Fontaine': 65
 };
+
+// Ligne 2 : Hôpital - Pavillon Noir (voie unique). ZC = Zone de Croisement, traitée comme une gare.
+const LIGNES = {
+    fontaine: { nom: 'Ligne Fontaine - Ville', ordre: ligneOrdre, temps: tempsTrajetSecondes, voieUnique: false },
+    pavillon: {
+        nom: 'Ligne Hôpital - Pavillon Noir',
+        ordre: ['Hôpital', 'Ville', 'Zoo', 'ZC', 'Pavillon Noir'],
+        temps: {
+            'Hôpital->Ville': 35, 'Ville->Zoo': 25, 'Zoo->ZC': 26, 'ZC->Pavillon Noir': 13,
+            'Ville->Hôpital': 35, 'Zoo->Ville': 25, 'ZC->Zoo': 26, 'Pavillon Noir->ZC': 13
+        },
+        voieUnique: true
+    }
+};
+
+// Libellés d'affichage (ZC n'est pas une gare voyageurs, c'est une zone de croisement)
+const LIBELLES_GARES = { 'ZC': 'ZC (Zone Croisement)' };
+function libelleGare(g) { return LIBELLES_GARES[g] || g; }
+
+// Les sillons sans champ "ligne" (anciens sillons) restent sur Fontaine - Ville.
+function ligneDe(s) { return LIGNES[s && s.ligne] || LIGNES.fontaine; }
 
 // true  = un sillon sans liste d'arrêts est considéré comme desservant toutes les gares
 // false = un sillon sans liste d'arrêts est considéré comme direct
@@ -420,8 +445,9 @@ function normaliser(str) {
         .replace(/\s+/g, ' ');
 }
 
+// Toutes les gares connues, toutes lignes confondues
 const garesCanoniques = {};
-ligneOrdre.forEach(g => { garesCanoniques[normaliser(g)] = g; });
+Object.values(LIGNES).forEach(L => L.ordre.forEach(g => { garesCanoniques[normaliser(g)] = g; }));
 
 function gareCanonique(nom) {
     const n = normaliser(nom);
@@ -433,17 +459,18 @@ function gareCanonique(nom) {
     if (n.startsWith('stockage')) return '*Stockage';
     if (n.startsWith('depot'))    return '*Dépot';
     if (n.startsWith('ville'))    return 'Ville';
+    if (n.startsWith('zoo'))      return 'Zoo';
+    if (n.startsWith('zc'))       return 'ZC';
+    if (n.startsWith('pavillon')) return 'Pavillon Noir';
     return null;
 }
 
-function dureeSegment(a, b) {
-    return tempsTrajetSecondes[a + '->' + b]
-        || tempsTrajetSecondes[b + '->' + a]
-        || 30;
-}
-
 /* ------------------------------------------------------------
-   4) CALCUL DU PARCOURS D'UN SILLON
+   4) CALCUL DU PARCOURS D'UN SILLON (même méthode que SIRIUS)
+   - on parcourt TOUTES les gares entre l'origine et le terminus
+   - le temps de trajet de chaque tronçon est toujours compté, même si la gare est sautée
+   - le temps d'arrêt n'est ajouté que si la gare précédente est un arrêt déclaré
+   - le retard est ajouté à l'horaire réel ; l'horaire théorique reste sans retard
    ------------------------------------------------------------ */
 function genererParcoursSillon(sillon) {
     const origine  = gareCanonique(sillon.origine  ?? sillon.origin ?? sillon.gareOrigine ?? sillon.from);
@@ -454,12 +481,19 @@ function genererParcoursSillon(sillon) {
         return [];
     }
 
-    const iO = ligneOrdre.indexOf(origine);
-    const iT = ligneOrdre.indexOf(terminus);
-    const sens = iO <= iT ? 1 : -1;
+    const L = ligneDe(sillon);
+    const ordre = L.ordre, temps = L.temps;
+    const iO = ordre.indexOf(origine);
+    const iT = ordre.indexOf(terminus);
+    if (iO < 0 || iT < 0 || iO === iT) {
+        console.warn('[SNCK] Sillon ignoré (gares hors de la ligne ' + L.nom + ') :', sillon);
+        return [];
+    }
 
-    const sousLigne = [];
-    for (let i = iO; sens > 0 ? i <= iT : i >= iT; i += sens) sousLigne.push(ligneOrdre[i]);
+    const direction = iT > iO ? 1 : -1;
+    const sousLigne = direction === 1
+        ? ordre.slice(iO, iT + 1)
+        : ordre.slice(iT, iO + 1).reverse();
 
     // Arrêts intermédiaires déclarés (tolérant sur le nom du champ et le format)
     const brut = sillon.arretsInter ?? sillon.arrets ?? sillon.stops ?? sillon.arrets_intermediaires ?? null;
@@ -470,51 +504,65 @@ function genererParcoursSillon(sillon) {
         arretsDeclares = brut.split(/[,;|]/).map(gareCanonique).filter(Boolean);
     }
 
+    const dernier = sousLigne.length - 1;
     const estDesservie = (gare, idx) =>
-        idx === 0 || idx === sousLigne.length - 1 ||
+        idx === 0 || idx === dernier ||
         (arretsDeclares === null ? OMNIBUS_PAR_DEFAUT : arretsDeclares.includes(gare));
 
-    const [h, m] = String(sillon.depart || '00:00').split(':').map(Number);
-    let sec = ((isNaN(h) ? 0 : h) * 60 + (isNaN(m) ? 0 : m)) * 60
-            + (Number(sillon.retard || 0) * 60);
+    // Durées d'arrêt : clés normalisées pour tolérer *Dépot / Depot, etc.
+    const durees = {};
+    if (sillon.arretsDurees && typeof sillon.arretsDurees === 'object') {
+        Object.keys(sillon.arretsDurees).forEach(k => {
+            const g = gareCanonique(k);
+            if (g) durees[g] = Number(sillon.arretsDurees[k]) || 0;
+        });
+    }
 
+    const [h, m] = String(sillon.depart || '00:00').split(':').map(Number);
+    const baseSec = ((isNaN(h) ? 0 : h) * 60 + (isNaN(m) ? 0 : m)) * 60;
+    const decalageSec = (Number(sillon.retard) || 0) * 60;
+    const fmt = t => String(Math.floor(t / 3600) % 24).padStart(2, '0') + ':' + String(Math.floor((t % 3600) / 60)).padStart(2, '0');
+
+    let secTheo = 0;
     const resultats = [];
 
     sousLigne.forEach((gare, idx) => {
-        if (!estDesservie(gare, idx)) return;
-
         if (idx > 0) {
-            const precedente = sousLigne[idx - 1];
-            sec += dureeSegment(precedente, gare);
+            const prev = sousLigne[idx - 1];
+            const trajet = temps[direction === 1 ? prev + '->' + gare : gare + '->' + prev]
+                        ?? temps[prev + '->' + gare] ?? temps[gare + '->' + prev] ?? 0;
+            secTheo += trajet;
 
-            // Temps d'arrêt en gare précédente (uniquement si c'était un arrêt intermédiaire desservi)
-            if (idx - 1 > 0 && estDesservie(precedente, idx - 1)) {
-                const d = sillon.arretsDurees && Number(sillon.arretsDurees[precedente]);
-                sec += (d || 1) * 60;
-            }
+            // Temps d'arrêt dans la gare précédente (arrêt intermédiaire seulement)
+            if (idx - 1 > 0 && estDesservie(prev, idx - 1)) secTheo += (durees[prev] || 0) * 60;
         }
 
-        const finalH = Math.floor(sec / 3600) % 24;
-        const finalM = Math.floor((sec % 3600) / 60);
-        const horaire = String(finalH).padStart(2, '0') + ':' + String(finalM).padStart(2, '0');
+        if (!estDesservie(gare, idx)) return;   // gare traversée sans arrêt : pas d'horaire affiché
 
-        const estExtremite = (idx === 0 || idx === sousLigne.length - 1);
-        const dureeArret = (!estExtremite && sillon.arretsDurees && Number(sillon.arretsDurees[gare]))
-            ? Number(sillon.arretsDurees[gare])
-            : (estExtremite ? 0 : 1);
-
+        const estExtremite = (idx === 0 || idx === dernier);
         resultats.push({
             gare: gare,
-            horaire: horaire,
+            horaire: fmt(baseSec + secTheo + decalageSec),   // horaire réel (avec retard)
+            horaireTheorique: fmt(baseSec + secTheo),
             voie: obtenirVoiePourGare(sillon, gare),
-            dureeArret: dureeArret
+            dureeArret: estExtremite ? 0 : (durees[gare] || 0)
         });
     });
 
     return resultats;
 }
 
+// Même règle que SIRIUS (determinerVoieGare)
 function obtenirVoiePourGare(sillon, gare) {
+    if (gare === '*Stockage' || gare === '*Dépot' || gare === 'ZC') return '';
+
+    // Ligne Hôpital - Pavillon Noir : voie choisie gare par gare dans SIRIUS (champ "voies")
+    if (sillon.ligne === 'pavillon') {
+        const v = sillon.voies && typeof sillon.voies === 'object' ? sillon.voies : {};
+        return v[gare] || '';
+    }
+
+    // Ligne Fontaine - Ville
     if (gare === 'Fontaine') return sillon.voieFontaine || 'Voie A';
     if (gare === 'Ville')    return sillon.voieVille    || 'Voie A';
     return (ligneOrdre.indexOf(gareCanonique(sillon.terminus)) >
@@ -587,7 +635,7 @@ function chargerTableauGare() {
     selectGarePc.value  = gareChoisie;
 
     const nomGareGrand = document.getElementById('nom-gare-grand');
-    if (nomGareGrand) nomGareGrand.innerText = 'Gare de ' + gareChoisie;
+    if (nomGareGrand) nomGareGrand.innerText = (gareChoisie === 'ZC') ? 'Zone de Croisement (ZC)' : 'Gare de ' + gareChoisie;
 
     // ---- FILTRAGE : on ne garde que les sillons qui desservent la gare choisie ----
     const trainsConcernes = [];
@@ -699,13 +747,13 @@ function ouvrirDetailTrain(index) {
             '<div class="relative flex items-center justify-between">' +
                 '<div class="absolute -left-[31px] w-4 h-4 rounded-full bg-blue-500 border-2 border-snck-card"></div>' +
                 '<div>' +
-                    '<h4 class="font-bold text-base text-white">' + etape.gare + '</h4>' +
+                    '<h4 class="font-bold text-base text-white">' + libelleGare(etape.gare) + '</h4>' +
                     '<div class="text-xs text-gray-400 mt-0.5">' +
                         (etape.voie ? '<span class="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20 font-semibold">' + etape.voie + '</span>' : '') +
                         (etape.dureeArret > 0 ? '<span class="text-amber-400 ml-2"><i class="fa-solid fa-clock mr-1"></i>' + etape.dureeArret + ' min</span>' : '') +
                     '</div>' +
                 '</div>' +
-                '<div class="font-mono text-base font-bold">' + etape.horaire + '</div>' +
+                '<div class="font-mono text-base font-bold">' + (etape.horaire !== etape.horaireTheorique ? '<span class="line-through text-gray-500 text-xs mr-2">' + etape.horaireTheorique + '</span><span class="text-amber-400">' + etape.horaire + '</span>' : etape.horaire) + '</div>' +
             '</div>';
     });
 
@@ -788,7 +836,8 @@ function handleFormSubmit(e, mode) {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams(formData).toString()
     })
-    .then(() => {
+    .then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         alert('Demande de privatisation envoyée avec succès !');
         form.reset();
         switchTab('horaires', mode);
