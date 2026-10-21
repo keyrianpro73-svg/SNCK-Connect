@@ -115,50 +115,9 @@
             <div id="content-tel-privatisation" class="hidden flex-1 p-4 overflow-y-auto space-y-4">
                 <div class="bg-snck-card border border-snck-border rounded-2xl p-5 space-y-4">
                     <h3 class="font-bold text-base text-amber-400 flex items-center gap-2"><i class="fa-solid fa-star"></i> Privatisation de Train</h3>
-                    <p class="text-xs text-gray-400">Remplissez ce formulaire. Votre demande sera envoyée directement par e-mail.</p>
+                    <p class="text-xs text-gray-400">Remplissez ce formulaire pour envoyer votre demande.</p>
                     
-                    <form name="privatisation-train" method="POST" data-netlify="true" onsubmit="handleFormSubmit(event, 'tel')" class="space-y-3">
-                        <input type="hidden" name="form-name" value="privatisation-train">
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">Nom / Groupe VIP</label>
-                            <input type="text" name="nom" required placeholder="ex: Groupe Scolaire" class="w-full bg-snck-dark border border-snck-border rounded-xl px-3 py-2 text-xs text-white">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">Votre Adresse E-mail</label>
-                            <input type="email" name="email" required placeholder="ex: contact@exemple.com" class="w-full bg-snck-dark border border-snck-border rounded-xl px-3 py-2 text-xs text-white">
-                        </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-xs text-gray-400 mb-1">Origine</label>
-                                <select name="origine" class="w-full bg-snck-dark border border-snck-border rounded-xl px-3 py-2 text-xs text-white">
-                                    <option value="Fontaine">Fontaine</option><option value="Mairie">Mairie</option><option value="Hôpital">Hôpital</option><option value="Ville">Ville</option><option value="Zoo">Zoo</option><option value="Pavillon Noir">Pavillon Noir</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs text-gray-400 mb-1">Terminus</label>
-                                <select name="terminus" class="w-full bg-snck-dark border border-snck-border rounded-xl px-3 py-2 text-xs text-white">
-                                    <option value="Fontaine">Fontaine</option><option value="Mairie">Mairie</option><option value="Hôpital">Hôpital</option><option value="Ville" selected>Ville</option><option value="Zoo">Zoo</option><option value="Pavillon Noir">Pavillon Noir</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-xs text-gray-400 mb-1">Date</label>
-                                <input type="date" name="date" required class="w-full bg-snck-dark border border-snck-border rounded-xl px-3 py-2 text-xs text-white">
-                            </div>
-                            <div>
-                                <label class="block text-xs text-gray-400 mb-1">Heure</label>
-                                <input type="time" name="heure" required class="w-full bg-snck-dark border border-snck-border rounded-xl px-3 py-2 text-xs text-white">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">Composition / Rame souhaitée</label>
-                            <input type="text" name="composition" required placeholder="ex: TER - 2 wagons" class="w-full bg-snck-dark border border-snck-border rounded-xl px-3 py-2 text-xs text-white">
-                        </div>
-                        <button type="submit" class="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs cursor-pointer">
-                            Envoyer la demande par e-mail
-                        </button>
-                    </form>
+                    <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSdpEXdBsvlxaDKm6Owk3wPC2LdQTUjxhQSscTtTpND7rnPB7Q/viewform?embedded=true" width="640" height="1013" frameborder="0" marginheight="0" marginwidth="0" style="width:100%;max-width:640px;display:block;margin:0 auto;border-radius:12px;background:#fff">Chargement…</iframe>
                 </div>
             </div>
         </div>
@@ -245,53 +204,10 @@
                 <div class="bg-snck-card border border-snck-border rounded-3xl p-8 shadow-2xl space-y-6">
                     <div class="border-b border-snck-border pb-4">
                         <h2 class="text-2xl font-black text-amber-400 flex items-center gap-3"><i class="fa-solid fa-star"></i> Espace Privatisation de Train</h2>
-                        <p class="text-xs text-gray-400 mt-1">Remplissez le formulaire ci-dessous. La demande sera transmise directement par e-mail.</p>
+                        <p class="text-xs text-gray-400 mt-1">Remplissez le formulaire ci-dessous pour envoyer votre demande.</p>
                     </div>
 
-                    <form name="privatisation-train" method="POST" data-netlify="true" onsubmit="handleFormSubmit(event, 'pc')" class="space-y-4">
-                        <input type="hidden" name="form-name" value="privatisation-train">
-                        <div>
-                            <label class="block text-xs font-medium text-gray-300 mb-1">Nom du demandeur / Groupe VIP</label>
-                            <input type="text" name="nom" required placeholder="ex: Groupe VIP" class="w-full bg-snck-dark border border-snck-border rounded-xl px-4 py-2.5 text-sm text-white">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-300 mb-1">Votre Adresse E-mail</label>
-                            <input type="email" name="email" required placeholder="ex: ton-email@domaine.com" class="w-full bg-snck-dark border border-snck-border rounded-xl px-4 py-2.5 text-sm text-white">
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-medium text-gray-300 mb-1">Gare d'Origine</label>
-                                <select name="origine" class="w-full bg-snck-dark border border-snck-border rounded-xl px-4 py-2.5 text-sm text-white">
-                                    <option value="Fontaine">Fontaine</option><option value="Mairie">Mairie</option><option value="Hôpital">Hôpital</option><option value="Ville">Ville</option><option value="Zoo">Zoo</option><option value="Pavillon Noir">Pavillon Noir</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-300 mb-1">Gare de Terminus</label>
-                                <select name="terminus" class="w-full bg-snck-dark border border-snck-border rounded-xl px-4 py-2.5 text-sm text-white">
-                                    <option value="Fontaine">Fontaine</option><option value="Mairie">Mairie</option><option value="Hôpital">Hôpital</option><option value="Ville" selected>Ville</option><option value="Zoo">Zoo</option><option value="Pavillon Noir">Pavillon Noir</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-medium text-gray-300 mb-1">Date souhaitée</label>
-                                <input type="date" name="date" required class="w-full bg-snck-dark border border-snck-border rounded-xl px-4 py-2.5 text-sm text-white">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-300 mb-1">Heure de départ</label>
-                                <input type="time" name="heure" required class="w-full bg-snck-dark border border-snck-border rounded-xl px-4 py-2.5 text-sm text-white">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-gray-300 mb-1">Composition du train spécial</label>
-                            <input type="text" name="composition" required placeholder="ex: TER - 3 Wagons" class="w-full bg-snck-dark border border-snck-border rounded-xl px-4 py-2.5 text-sm text-white">
-                        </div>
-                        <div class="pt-4">
-                            <button type="submit" class="w-full py-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm cursor-pointer shadow-lg shadow-amber-600/20">
-                                <i class="fa-solid fa-paper-plane mr-2"></i> Envoyer la demande par e-mail
-                            </button>
-                        </div>
-                    </form>
+                    <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSdpEXdBsvlxaDKm6Owk3wPC2LdQTUjxhQSscTtTpND7rnPB7Q/viewform?embedded=true" width="640" height="1013" frameborder="0" marginheight="0" marginwidth="0" style="width:100%;max-width:640px;display:block;margin:0 auto;border-radius:12px;background:#fff">Chargement…</iframe>
                 </div>
             </main>
         </div>
@@ -824,25 +740,6 @@ function switchTab(tabName, mode) {
             ? 'px-5 py-2 rounded-xl text-sm font-bold bg-amber-600 text-white transition-all cursor-pointer'
             : 'px-5 py-2 rounded-xl text-sm font-bold bg-snck-dark text-gray-400 border border-snck-border transition-all cursor-pointer';
     }
-}
-
-function handleFormSubmit(e, mode) {
-    e.preventDefault();
-    const form = e.target;
-    const formData = new FormData(form);
-
-    fetch('/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams(formData).toString()
-    })
-    .then(res => {
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        alert('Demande de privatisation envoyée avec succès !');
-        form.reset();
-        switchTab('horaires', mode);
-    })
-    .catch(() => alert('Erreur lors de l\'envoi.'));
 }
 
 /* ------------------------------------------------------------
