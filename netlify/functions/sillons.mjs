@@ -32,8 +32,14 @@ export default async (req) => {
   if (typeof state.json === "string") {
     try { state = JSON.parse(state.json); } catch { state = {}; }
   }
+  // On garantit la présence de "ligne" et "voies" (voie choisie par gare) pour chaque sillon.
+  const sillons = (Array.isArray(state.sillons) ? state.sillons : []).map((s) => ({
+    ...s,
+    ligne: s && s.ligne ? s.ligne : "fontaine",
+    voies: s && s.voies && typeof s.voies === "object" ? s.voies : {},
+  }));
   return json({
-    sillons: Array.isArray(state.sillons) ? state.sillons : [],
+    sillons,
     perturbations: Array.isArray(state.perturbations) ? state.perturbations : [],
   });
 };
