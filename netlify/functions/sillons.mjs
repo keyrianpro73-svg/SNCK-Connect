@@ -1,6 +1,7 @@
 // Relais lecture seule : lit la base SIRIUS côté serveur et ne renvoie que les sillons.
 // Les comptes et les hashes de mots de passe ne sortent jamais d'ici.
-const SIRIUS_URL = process.env.SIRIUS_URL || "https://snck-sirius-app.netlify.app";
+// Ce fichier est déployé sur le site SNCK Connect ; SIRIUS est un autre site Netlify.
+const SIRIUS_URL = process.env.SIRIUS_URL || "https://snck-app-sirius.netlify.app";
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -18,6 +19,7 @@ export default async (req) => {
   try {
     res = await fetch(`${SIRIUS_URL}/api/db?id=${encodeURIComponent(id)}`, {
       headers: { Accept: "application/json" },
+      cache: "no-store",
     });
   } catch {
     return json({ error: "SIRIUS injoignable." }, 502);
