@@ -102,6 +102,7 @@
                     <select id="select-gare-tel" onchange="chargerTableauGare()" class="w-full bg-snck-dark border border-snck-border rounded-xl px-4 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-blue-500">
                         <option value="Fontaine">Gare de Fontaine</option>
                         <option value="Mairie">Gare de Mairie</option>
+                        <option value="Technicentre">Gare de Technicentre</option>
                         <option value="Hôpital">Gare de Hôpital</option>
                         <option value="Ville">Gare de Ville</option>
                         <option value="Zoo">Gare de Zoo</option>
@@ -172,6 +173,7 @@
                             <select id="select-gare-pc" onchange="chargerTableauGare()" class="bg-snck-dark border border-snck-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 font-bold">
                                 <option value="Fontaine">Gare de Fontaine</option>
                                 <option value="Mairie">Gare de Mairie</option>
+                        <option value="Technicentre">Gare de Technicentre</option>
                                 <option value="Hôpital">Gare de Hôpital</option>
                                 <option value="Ville">Gare de Ville</option>
                                 <option value="Zoo">Gare de Zoo</option>
@@ -234,8 +236,6 @@
                         <p id="detail-date-train" class="text-xs text-gray-400 mt-1">Date</p>
                     </div>
 
-                    <div id="detail-alertes" class="space-y-3"></div>
-
                     <div class="flex justify-between items-center bg-snck-dark border border-snck-border rounded-2xl p-5">
                         <div class="text-left">
                             <div id="detail-heure-depart" class="text-3xl font-black font-mono">00:00</div>
@@ -274,8 +274,6 @@
    ------------------------------------------------------------ */
 // Le relais /api/sillons (fonction Netlify de ce site) lit SIRIUS côté serveur : pas de souci de CORS.
 const CLE_CACHE = 'snck_connect_cache_sillons';
-const CLE_CACHE_PERTURB = 'snck_connect_cache_perturbations';
-let perturbationsDisponibles = [];
 // Optionnel : code de synchro SIRIUS à utiliser d'office (sinon, saisi via la roue ⚙️).
 const SIRIUS_CODE_DEFAUT = '';
 
@@ -320,11 +318,11 @@ let currentMode = 'pc';
 let sillonsDisponibles = [];
 
 // Ligne 1 : Fontaine - Ville
-const ligneOrdre = ['Fontaine', 'Mairie', 'Hôpital', '*Stockage', '*Dépot', 'Ville'];
+const ligneOrdre = ['Fontaine', 'Mairie', 'Technicentre', 'Hôpital', '*Stockage', '*Dépot', 'Ville'];
 
 const tempsTrajetSecondes = {
-    'Fontaine->Mairie': 65, 'Mairie->Hôpital': 36, 'Hôpital->*Stockage': 25, '*Stockage->*Dépot': 8, '*Dépot->Ville': 16,
-    'Ville->*Dépot': 16, '*Dépot->*Stockage': 8, '*Stockage->Hôpital': 25, 'Hôpital->Mairie': 36, 'Mairie->Fontaine': 65
+    'Fontaine->Mairie': 65, 'Mairie->Technicentre': 9, 'Technicentre->Hôpital': 27, 'Hôpital->*Stockage': 25, '*Stockage->*Dépot': 8, '*Dépot->Ville': 16,
+    'Ville->*Dépot': 16, '*Dépot->*Stockage': 8, '*Stockage->Hôpital': 25, 'Hôpital->Technicentre': 27, 'Technicentre->Mairie': 9, 'Mairie->Fontaine': 65
 };
 
 // Ligne 2 : Hôpital - Pavillon Noir (voie unique). ZC = Zone de Croisement, traitée comme une gare.
@@ -375,6 +373,7 @@ function gareCanonique(nom) {
     if (garesCanoniques[n]) return garesCanoniques[n];
     if (n.startsWith('fontaine')) return 'Fontaine';
     if (n.startsWith('mairie'))   return 'Mairie';
+    if (n.startsWith('technicentre')) return 'Technicentre';
     if (n.startsWith('hopital'))  return 'Hôpital';
     if (n.startsWith('stockage')) return '*Stockage';
     if (n.startsWith('depot'))    return '*Dépot';
@@ -443,8 +442,6 @@ function genererParcoursSillon(sillon) {
     const decalageSec = (Number(sillon.retard) || 0) * 60;
     const fmt = t => String(Math.floor(t / 3600) % 24).padStart(2, '0') + ':' + String(Math.floor((t % 3600) / 60)).padStart(2, '0');
 
-    // Retards déclarés « à partir de telle gare » dans SIRIUS (en secondes, cumulés vers l'aval)
-    const entreesRetard = Array.isArray(sillon.retardsGares) ? sillon.retardsGares : [];
     let secTheo = 0;
     const resultats = [];
 
@@ -461,14 +458,11 @@ function genererParcoursSillon(sillon) {
 
         if (!estDesservie(gare, idx)) return;   // gare traversée sans arrêt : pas d'horaire affiché
 
-        let extraSec = 0;
-        entreesRetard.forEach(e => { const k = sousLigne.indexOf(gareCanonique(e.gare)); if (k >= 0 && k <= idx) extraSec += Number(e.sec) || 0; });
         const estExtremite = (idx === 0 || idx === dernier);
         resultats.push({
             gare: gare,
-            horaire: fmt(baseSec + secTheo + decalageSec + extraSec),   // horaire réel (avec retards)
+            horaire: fmt(baseSec + secTheo + decalageSec),   // horaire réel (avec retard)
             horaireTheorique: fmt(baseSec + secTheo),
-            retardSec: decalageSec + extraSec,
             voie: obtenirVoiePourGare(sillon, gare),
             dureeArret: estExtremite ? 0 : (durees[gare] || 0)
         });
@@ -503,7 +497,6 @@ async function recupererSillonsCloud() {
     if (!url) {
         updateSiriusStatus('error', 'Code SIRIUS manquant — cliquez sur ⚙️');
         sillonsDisponibles = lireCache();
-        perturbationsDisponibles = lireCachePerturbations();
         chargerTableauGare();
         return;
     }
@@ -529,8 +522,6 @@ async function recupererSillonsCloud() {
 
         sillonsDisponibles = arr;
         localStorage.setItem(CLE_CACHE, JSON.stringify(arr));
-        perturbationsDisponibles = extrairePerturbations(data);
-        localStorage.setItem(CLE_CACHE_PERTURB, JSON.stringify(perturbationsDisponibles));
 
         updateSiriusStatus('ok', arr.length + ' sillons synchronisés');
         chargerTableauGare();
@@ -539,25 +530,8 @@ async function recupererSillonsCloud() {
         console.error('[SNCK] Erreur API SIRIUS :', err);
         updateSiriusStatus('error', 'Erreur connexion SIRIUS (' + err.message + ')');
         sillonsDisponibles = lireCache();
-        perturbationsDisponibles = lireCachePerturbations();
         chargerTableauGare();
     }
-}
-
-function extrairePerturbations(data) {
-    if (!data || typeof data !== 'object') return [];
-    let state = data.state;
-    if (state && typeof state.json === 'string') { try { state = JSON.parse(state.json); } catch (e) {} }
-    if (state && Array.isArray(state.perturbations)) return state.perturbations;
-    if (Array.isArray(data.perturbations)) return data.perturbations;
-    return [];
-}
-
-function lireCachePerturbations() {
-    try {
-        const c = JSON.parse(localStorage.getItem(CLE_CACHE_PERTURB));
-        return Array.isArray(c) ? c : [];
-    } catch (e) { return []; }
 }
 
 function lireCache() {
@@ -702,8 +676,6 @@ function ouvrirDetailTrain(index) {
             '</div>';
     });
 
-    rendreAlertesDetail(sillon, parcours);
-
     const heureDepart  = parcours[0].horaire;
     const heureArrivee = parcours[parcours.length - 1].horaire;
 
@@ -717,104 +689,6 @@ function ouvrirDetailTrain(index) {
 
     document.getElementById('detail-duree-trajet').innerText =
         Math.floor(totalMins / 60) + 'h' + String(totalMins % 60).padStart(2, '0');
-}
-
-/* ------------------------------------------------------------
-   7bis) ALERTES DE LA FICHE DÉTAIL : RETARD ET PERTURBATIONS
-   ------------------------------------------------------------ */
-function departTsSillon(sillon) {
-    const [h, m] = String(sillon.depart || '00:00').split(':').map(Number);
-    const d = sillon.dateBrute ? new Date(sillon.dateBrute + 'T00:00:00') : new Date();
-    d.setHours(h || 0, m || 0, 0, 0);
-    return d.getTime();
-}
-
-// Fin de la perturbation = heure de fin saisie dans SIRIUS (le lendemain si elle est avant l'heure de création)
-function perturbationFinTs(p) {
-    if (!p.heureFin) return Infinity;
-    let debut = p.ts;
-    if (!debut) {
-        const m = String(p.dateCreation || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\D+(\d{1,2}):(\d{2})/);
-        if (m) debut = new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5]).getTime();
-    }
-    if (!debut) return Infinity;
-    const [h, mi] = String(p.heureFin).split(':').map(Number);
-    const d = new Date(debut); d.setHours(h, mi, 59, 999);
-    if (d.getTime() < debut) d.setDate(d.getDate() + 1);
-    return d.getTime();
-}
-
-function perturbationConcerne(p, sillon) {
-    const cle = sillon.ligne === 'pavillon' ? 'pavillon' : 'fontaine';
-    const ordre = ligneDe(sillon).ordre, l = String(p.ligne || '');
-    if (p.actif === false || Date.now() > perturbationFinTs(p)) return false;
-    // Le train doit rouler avant la fin de la perturbation
-    if (departTsSillon(sillon) > perturbationFinTs(p)) return false;
-    if (!l || l === 'Toute la ligne' || l === 'Tout le réseau') return true;
-    if (l.startsWith('Toute la ligne ')) return (l.includes('Pavillon') ? 'pavillon' : 'fontaine') === cle;
-    const m = l.match(/^Section (.+?) - (.+?)( \(ligne Pavillon Noir\))?$/);
-    if (!m) return true;
-    const surL2 = ['Zoo', 'ZC', 'Pavillon Noir'];
-    const cible = (m[3] || surL2.includes(m[1]) || surL2.includes(m[2])) ? 'pavillon' : 'fontaine';
-    if (cible !== cle) return false;
-    const a = ordre.indexOf(gareCanonique(m[1])), b = ordre.indexOf(gareCanonique(m[2]));
-    const iO = ordre.indexOf(gareCanonique(sillon.origine)), iT = ordre.indexOf(gareCanonique(sillon.terminus));
-    if (a < 0 || b < 0 || iO < 0 || iT < 0) return false;
-    return Math.min(a, b) >= Math.min(iO, iT) && Math.max(a, b) <= Math.max(iO, iT);
-}
-
-// Motif le plus récent saisi via « Signaler retard / avance » dans SIRIUS
-function motifRetardSillon(sillon) {
-    const c = [];
-    if (sillon.motifRetard) c.push({ motif: sillon.motifRetard, ts: sillon.motifRetardTs || 0 });
-    (sillon.retardsGares || []).forEach(e => { if (e.motif) c.push({ motif: e.motif, ts: e.ts || 0 }); });
-    c.sort((a, b) => b.ts - a.ts);
-    return c.length ? c[0].motif : '';
-}
-
-function echapper(t) {
-    const e = document.createElement('span'); e.textContent = String(t == null ? '' : t); return e.innerHTML;
-}
-
-function rendreAlertesDetail(sillon, parcours) {
-    const zone = document.getElementById('detail-alertes');
-    if (!zone) return;
-    let html = '';
-
-    // Retard : affiché seulement s'il y a du retard au départ ou à l'arrivée (rien si le train est à l'heure ou en avance)
-    const dep = Math.round((parcours[0].retardSec || 0) / 60);
-    const arr = Math.round((parcours[parcours.length - 1].retardSec || 0) / 60);
-    if (dep > 0 || arr > 0) {
-        let texte;
-        if (dep > 0 && arr > 0) texte = 'Retard estimé à ' + dep + ' min au départ et ' + arr + ' min à l\'arrivée';
-        else if (arr > 0) texte = 'Retard estimé à ' + arr + ' min à l\'arrivée';
-        else texte = 'Retard estimé à ' + dep + ' min au départ';
-        const motif = motifRetardSillon(sillon);
-        html +=
-            '<div class="flex items-start gap-3 rounded-2xl border border-orange-500/30 bg-orange-500/10 px-4 py-3">' +
-                '<div class="w-7 h-7 shrink-0 rounded-full bg-orange-700 text-white flex items-center justify-center text-xs"><i class="fa-solid fa-clock"></i></div>' +
-                '<div class="min-w-0">' +
-                    '<div class="font-bold text-sm text-orange-400">' + texte + '</div>' +
-                    '<div class="text-sm text-gray-200 mt-0.5">' + echapper(sillon.numero || 'Train') + (motif ? '. ' + echapper(motif) : '') + '</div>' +
-                '</div>' +
-            '</div>';
-    }
-
-    // Perturbations publiées dans SIRIUS qui concernent ce train
-    perturbationsDisponibles.filter(p => perturbationConcerne(p, sillon)).forEach(p => {
-        const interr = p.type === 'Interruption';
-        html +=
-            '<div class="flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3">' +
-                '<div class="w-7 h-7 shrink-0 rounded-full bg-red-600 text-white flex items-center justify-center text-sm font-black">!</div>' +
-                '<div class="min-w-0">' +
-                    '<div class="font-bold text-sm text-red-400">' + (interr ? 'Trafic interrompu' : 'Trafic perturbé') + '</div>' +
-                    '<div class="text-sm text-gray-200 mt-0.5">Cause : ' + echapper(p.nom) + '</div>' +
-                    (p.heureFin ? '<div class="text-[11px] text-gray-400 mt-0.5">Fin prévue à ' + echapper(p.heureFin) + '</div>' : '') +
-                '</div>' +
-            '</div>';
-    });
-
-    zone.innerHTML = html;
 }
 
 function fermerDetailTrain() { switchMode(currentMode); }
