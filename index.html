@@ -251,6 +251,8 @@
                         </div>
                     </div>
 
+                    <div id="detail-alertes" class="space-y-2 hidden"></div>
+
                     <div class="space-y-4 pt-4">
                         <h4 class="text-sm font-bold text-gray-300 uppercase tracking-wider">Arrêts desservis</h4>
                         <div id="detail-liste-arrets" class="relative pl-6 space-y-6 border-l-2 border-blue-500/40 ml-4">
@@ -274,6 +276,8 @@
    ------------------------------------------------------------ */
 // Le relais /api/sillons (fonction Netlify de ce site) lit SIRIUS côté serveur : pas de souci de CORS.
 const CLE_CACHE = 'snck_connect_cache_sillons';
+const CLE_CACHE_PERT = 'snck_connect_cache_perturbations';
+let perturbationsReseau = [];
 // Optionnel : code de synchro SIRIUS à utiliser d'office (sinon, saisi via la roue ⚙️).
 const SIRIUS_CODE_DEFAUT = '';
 
@@ -299,6 +303,19 @@ function extraireSillons(data) {
     if (state && Array.isArray(state.sillons)) return state.sillons;
     if (Array.isArray(data.sillons)) return data.sillons;
     return [];
+}
+
+// Perturbations publiées dans SIRIUS (Horairiste & Perturbations)
+function extrairePerturbations(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return [];
+    let state = data.state;
+    if (state && typeof state.json === 'string') { try { state = JSON.parse(state.json); } catch (e) {} }
+    const arr = (state && Array.isArray(state.perturbations)) ? state.perturbations
+              : (Array.isArray(data.perturbations) ? data.perturbations : []);
+    return arr.filter(p => p && p.actif !== false);
+}
+function lirePerturbationsCache() {
+    try { const c = JSON.parse(localStorage.getItem(CLE_CACHE_PERT)); return Array.isArray(c) ? c : []; } catch (e) { return []; }
 }
 
 function setApiEndpoint(valeur) {
@@ -439,13 +456,28 @@ function genererParcoursSillon(sillon) {
 
     const [h, m] = String(sillon.depart || '00:00').split(':').map(Number);
     const baseSec = ((isNaN(h) ? 0 : h) * 60 + (isNaN(m) ? 0 : m)) * 60;
-    const decalageSec = (Number(sillon.retard) || 0) * 60;
+    // Retards : soit un écart global (retardAuto + retardManuel = sillon.retard), soit un écart par gare (retardsGares)
+    const palGares = {};
+    if (sillon.retardsGares && typeof sillon.retardsGares === 'object') {
+        Object.keys(sillon.retardsGares).forEach(k => {
+            const g = gareCanonique(k), p = sillon.retardsGares[k];
+            if (g && p && Number.isFinite(Number(p.min))) palGares[g] = { min: Number(p.min), motif: p.motif || '' };
+        });
+    }
+    const motifGeneral = sillon.motifRetard || '';
+    const retardBase = Number.isFinite(Number(sillon.retardAuto)) && sillon.retardAuto !== null && sillon.retardAuto !== undefined
+        ? Number(sillon.retardAuto)
+        : Math.max(0, (Number(sillon.retard) || 0) - (Number(sillon.retardManuel) || 0));
+    const globalMin = Object.keys(palGares).length ? null : (Number(sillon.retard) || 0);
+    let retardCourant = globalMin !== null ? globalMin : retardBase;
+    let motifCourant = motifGeneral;
     const fmt = t => String(Math.floor(t / 3600) % 24).padStart(2, '0') + ':' + String(Math.floor((t % 3600) / 60)).padStart(2, '0');
 
     let secTheo = 0;
     const resultats = [];
 
     sousLigne.forEach((gare, idx) => {
+        if (palGares[gare]) { retardCourant = palGares[gare].min; motifCourant = palGares[gare].motif || motifGeneral; }
         if (idx > 0) {
             const prev = sousLigne[idx - 1];
             const trajet = temps[direction === 1 ? prev + '->' + gare : gare + '->' + prev]
@@ -461,7 +493,9 @@ function genererParcoursSillon(sillon) {
         const estExtremite = (idx === 0 || idx === dernier);
         resultats.push({
             gare: gare,
-            horaire: fmt(baseSec + secTheo + decalageSec),   // horaire réel (avec retard)
+            horaire: fmt(baseSec + secTheo + retardCourant * 60),   // horaire réel (avec retard à cette gare)
+            retard: retardCourant,
+            motif: retardCourant !== 0 ? motifCourant : '',
             horaireTheorique: fmt(baseSec + secTheo),
             voie: obtenirVoiePourGare(sillon, gare),
             dureeArret: estExtremite ? 0 : (durees[gare] || 0)
@@ -470,6 +504,27 @@ function genererParcoursSillon(sillon) {
 
     return resultats;
 }
+
+// Une perturbation concerne-t-elle ce train ? (même règle que la cabine SIRIUS)
+const SECTIONS_PERTURBATION = {
+    'Section Fontaine - Mairie': ['Fontaine', 'Mairie'],
+    'Section Mairie - Hôpital': ['Mairie', 'Hôpital'],
+    'Section Hôpital - Ville': ['Hôpital', 'Ville']
+};
+function perturbationConcerne(p, sillon) {
+    const sec = SECTIONS_PERTURBATION[p.ligne];
+    if (!sec) return true;   // « Toute la ligne »
+    const o = gareCanonique(sillon.origine), t = gareCanonique(sillon.terminus);
+    const L = ligneDe(sillon).ordre, a = L.indexOf(o), b = L.indexOf(t);
+    if (a < 0 || b < 0) return false;
+    const route = b >= a ? L.slice(a, b + 1) : L.slice(b, a + 1);
+    if (sillon.ligne === 'pavillon') return route.includes(sec[0]) && route.includes(sec[1]);
+    const F = LIGNES.fontaine.ordre, idx = route.map(g => F.indexOf(g)).filter(i => i >= 0);
+    if (!idx.length) return false;
+    return Math.max(Math.min(...idx), F.indexOf(sec[0])) < Math.min(Math.max(...idx), F.indexOf(sec[1]));
+}
+const fmtEcart = n => (n > 0 ? '+' : '') + n + ' min';
+function echapper(v) { const e = document.createElement('span'); e.textContent = String(v == null ? '' : v); return e.innerHTML; }
 
 // Même règle que SIRIUS (determinerVoieGare)
 function obtenirVoiePourGare(sillon, gare) {
@@ -497,6 +552,7 @@ async function recupererSillonsCloud() {
     if (!url) {
         updateSiriusStatus('error', 'Code SIRIUS manquant — cliquez sur ⚙️');
         sillonsDisponibles = lireCache();
+        perturbationsReseau = lirePerturbationsCache();
         chargerTableauGare();
         return;
     }
@@ -522,6 +578,8 @@ async function recupererSillonsCloud() {
 
         sillonsDisponibles = arr;
         localStorage.setItem(CLE_CACHE, JSON.stringify(arr));
+        perturbationsReseau = extrairePerturbations(data);
+        localStorage.setItem(CLE_CACHE_PERT, JSON.stringify(perturbationsReseau));
 
         updateSiriusStatus('ok', arr.length + ' sillons synchronisés');
         chargerTableauGare();
@@ -530,6 +588,7 @@ async function recupererSillonsCloud() {
         console.error('[SNCK] Erreur API SIRIUS :', err);
         updateSiriusStatus('error', 'Erreur connexion SIRIUS (' + err.message + ')');
         sillonsDisponibles = lireCache();
+        perturbationsReseau = lirePerturbationsCache();
         chargerTableauGare();
     }
 }
@@ -568,7 +627,8 @@ function chargerTableauGare() {
             sillon: sillon,
             index: indexOriginal,
             horaire: etape.horaire,
-            voie: etape.voie
+            voie: etape.voie,
+            retard: etape.retard || 0
         });
     });
 
@@ -589,8 +649,10 @@ function chargerTableauGare() {
                     ? '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">En circulation</span>'
                     : '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-400 border border-blue-500/25">Prévu' + (s.dateJJMM ? ' (' + s.dateJJMM + ')' : '') + '</span>';
 
-                if (Number(s.retard) > 0) {
-                    statutBadge += ' <span class="text-xs text-amber-400 font-bold ml-1">+' + s.retard + 'm</span>';
+                if (item.retard > 0) {
+                    statutBadge += ' <span class="text-xs text-amber-400 font-bold ml-1">+' + item.retard + 'm</span>';
+                } else if (item.retard < 0) {
+                    statutBadge += ' <span class="text-xs text-blue-400 font-bold ml-1">' + item.retard + 'm</span>';
                 }
 
                 tbodyPC.innerHTML +=
@@ -662,6 +724,12 @@ function ouvrirDetailTrain(index) {
     arretsContainer.innerHTML = '';
 
     parcours.forEach(etape => {
+        const ecart = etape.retard || 0;
+        const tagRetard = ecart !== 0
+            ? '<div class="text-[11px] font-semibold mt-1 ' + (ecart > 0 ? 'text-amber-400' : 'text-blue-400') + '">' +
+                '<i class="fa-solid fa-triangle-exclamation mr-1"></i>' + (ecart > 0 ? 'Retard ' : 'Avance ') + fmtEcart(ecart) +
+                (etape.motif ? ' · ' + echapper(etape.motif) : '') + '</div>'
+            : '';
         arretsContainer.innerHTML +=
             '<div class="relative flex items-center justify-between">' +
                 '<div class="absolute -left-[31px] w-4 h-4 rounded-full bg-blue-500 border-2 border-snck-card"></div>' +
@@ -670,11 +738,48 @@ function ouvrirDetailTrain(index) {
                     '<div class="text-xs text-gray-400 mt-0.5">' +
                         (etape.voie ? '<span class="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20 font-semibold">' + etape.voie + '</span>' : '') +
                         (etape.dureeArret > 0 ? '<span class="text-amber-400 ml-2"><i class="fa-solid fa-clock mr-1"></i>' + etape.dureeArret + ' min</span>' : '') +
-                    '</div>' +
+                    '</div>' + tagRetard +
                 '</div>' +
                 '<div class="font-mono text-base font-bold">' + (etape.horaire !== etape.horaireTheorique ? '<span class="line-through text-gray-500 text-xs mr-2">' + etape.horaireTheorique + '</span><span class="text-amber-400">' + etape.horaire + '</span>' : etape.horaire) + '</div>' +
             '</div>';
     });
+
+    // ---- Bandeau retards & perturbations ----
+    const alertes = [];
+    const derniere = parcours[parcours.length - 1];
+    const ecarts = parcours.map(e => e.retard || 0);
+    if (ecarts.some(r => r !== 0)) {
+        const parGare = sillon.retardsGares && Object.keys(sillon.retardsGares).length;
+        const resume = parGare
+            ? parcours.map(e => libelleGare(e.gare) + ' ' + (e.retard > 0 ? '+' : '') + (e.retard || 0)).join(' · ')
+            : fmtEcart(ecarts[0]);
+        const motifs = [];
+        parcours.forEach(e => { if (e.motif && !motifs.includes(e.motif)) motifs.push(e.motif); });
+        const finEcart = derniere.retard || 0;
+        const c = finEcart > 0 ? 'amber' : finEcart < 0 ? 'blue' : 'emerald';
+        alertes.push(
+            '<div class="rounded-2xl border border-' + c + '-500/30 bg-' + c + '-500/10 px-4 py-3">' +
+                '<div class="text-xs font-extrabold uppercase tracking-wider text-' + c + '-400"><i class="fa-solid fa-clock mr-1"></i>' +
+                    (finEcart > 0 ? 'Retard' : finEcart < 0 ? 'Avance' : 'Écarts horaires') + '</div>' +
+                '<div class="text-sm font-bold text-white mt-1">' + echapper(resume) + '</div>' +
+                (motifs.length ? '<div class="text-xs text-gray-300 mt-1"><b>Motif :</b> ' + motifs.map(echapper).join(' / ') + '</div>' : '') +
+            '</div>');
+    }
+    (perturbationsReseau || []).filter(p => perturbationConcerne(p, sillon)).forEach(p => {
+        const c = p.type === 'Interruption' ? 'red' : 'amber';
+        alertes.push(
+            '<div class="rounded-2xl border border-' + c + '-500/30 bg-' + c + '-500/10 px-4 py-3">' +
+                '<div class="flex flex-wrap items-center gap-2">' +
+                    '<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-' + c + '-500/20 text-' + c + '-400 border border-' + c + '-500/30">' + echapper(p.type || 'Perturbation') + '</span>' +
+                    '<span class="text-sm font-bold text-white">' + echapper(p.nom) + '</span>' +
+                '</div>' +
+                '<div class="text-xs text-gray-300 mt-1"><i class="fa-solid fa-route mr-1"></i>' + echapper(p.ligne || 'Toute la ligne') +
+                    (p.heureFin ? ' • Fin prévue : ' + echapper(p.heureFin) : '') + '</div>' +
+            '</div>');
+    });
+    const zoneAlertes = document.getElementById('detail-alertes');
+    zoneAlertes.innerHTML = alertes.join('');
+    zoneAlertes.classList.toggle('hidden', alertes.length === 0);
 
     const heureDepart  = parcours[0].horaire;
     const heureArrivee = parcours[parcours.length - 1].horaire;
